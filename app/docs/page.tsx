@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   description: 'API reference for the Vehicle Registration Checker lookup service.',
 }
 
-const BASE = 'https://your-deployment.up.railway.app'
+const BASE = 'https://vec-production-4764.up.railway.app'
 
 function Badge({ method }: { method: 'GET' | 'POST' }) {
   return (
