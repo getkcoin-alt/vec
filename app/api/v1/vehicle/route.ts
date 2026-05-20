@@ -1,15 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { withCors, optionsResponse } from '@/lib/cors'
+
+export async function OPTIONS() {
+  return optionsResponse()
+}
 
 export async function GET(request: NextRequest) {
   const apiKey = request.headers.get('x-api-key')
   if (!apiKey) {
-    return NextResponse.json({ success: false, error: 'Missing X-API-Key header' }, { status: 401 })
+    return withCors(NextResponse.json({ success: false, error: 'Missing X-API-Key header' }, { status: 401 }))
   }
 
   const reg = request.nextUrl.searchParams.get('reg')
   if (!reg) {
-    return NextResponse.json({ success: false, error: 'Missing reg parameter' }, { status: 400 })
+    return withCors(NextResponse.json({ success: false, error: 'Missing reg parameter' }, { status: 400 }))
   }
 
   const { data: client, error: clientErr } = await supabase
@@ -19,14 +24,11 @@ export async function GET(request: NextRequest) {
     .single()
 
   if (clientErr || !client) {
-    return NextResponse.json({ success: false, error: 'Invalid API key' }, { status: 401 })
+    return withCors(NextResponse.json({ success: false, error: 'Invalid API key' }, { status: 401 }))
   }
 
   if (client.balance <= 0) {
-    return NextResponse.json(
-      { success: false, error: 'Insufficient credits' },
-      { status: 402 }
-    )
+    return withCors(NextResponse.json({ success: false, error: 'Insufficient credits' }, { status: 402 }))
   }
 
   const upstream = await fetch(
@@ -49,7 +51,7 @@ export async function GET(request: NextRequest) {
       }),
     ])
 
-    return NextResponse.json({
+    return withCors(NextResponse.json({
       success: true,
       regn_no: data.regn_no,
       data: data.data,
@@ -57,7 +59,7 @@ export async function GET(request: NextRequest) {
         credits_used: 1,
         credits_remaining: client.balance - 1,
       },
-    })
+    }))
   }
 
   await supabase.from('lookups').insert({
@@ -66,11 +68,11 @@ export async function GET(request: NextRequest) {
     success: false,
   })
 
-  return NextResponse.json({
+  return withCors(NextResponse.json({
     ...data,
     _meta: {
       credits_used: 0,
       credits_remaining: client.balance,
     },
-  })
+  }))
 }
