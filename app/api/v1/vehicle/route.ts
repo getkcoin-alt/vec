@@ -36,8 +36,9 @@ export async function GET(request: NextRequest) {
     // Call upstream
     let upstreamData: Record<string, unknown>
     try {
+      const upstreamBase = process.env.UPSTREAM_BASE_URL ?? 'https://vapi.zeltronaddy.in'
       const upstream = await fetch(
-        `https://vapi.zeltronaddy.in/v1/vehicle?reg=${encodeURIComponent(reg)}`,
+        `${upstreamBase}/v1/vehicle?reg=${encodeURIComponent(reg)}`,
         {
           headers: { 'X-API-Key': process.env.VAPI_API_KEY! },
           signal: AbortSignal.timeout(15000),
