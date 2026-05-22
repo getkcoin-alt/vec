@@ -13,11 +13,29 @@ async function logout() {
   redirect('/admin/login')
 }
 
+async function fetchUpstreamBalance() {
+  try {
+    const res = await fetch('https://vapi.zeltronaddy.in/v1/balance', {
+      headers: { 'X-API-Key': process.env.VAPI_API_KEY! },
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!res.ok) return null
+    return res.json() as Promise<{
+      user: string
+      calls_total: number
+      calls_used: number
+      calls_remaining: number
+    }>
+  } catch {
+    return null
+  }
+}
+
 export default async function AdminDashboard() {
-  const { data: clients } = await supabase
-    .from('clients')
-    .select('*')
-    .order('created_at', { ascending: false })
+  const [{ data: clients }, upstream] = await Promise.all([
+    supabase.from('clients').select('*').order('created_at', { ascending: false }),
+    fetchUpstreamBalance(),
+  ])
 
   const totalClients = clients?.length ?? 0
   const totalCredits = clients?.reduce((s, c) => s + c.balance, 0) ?? 0
@@ -41,18 +59,48 @@ export default async function AdminDashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <p className="text-xs text-gray-500 mb-1">Total Clients</p>
           <p className="text-3xl font-bold text-gray-800">{totalClients}</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-          <p className="text-xs text-gray-500 mb-1">Credits Outstanding</p>
+          <p className="text-xs text-gray-500 mb-1">Credits Issued</p>
           <p className="text-3xl font-bold text-blue-600">{totalCredits}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 col-span-2 sm:col-span-1">
-          <p className="text-xs text-gray-500 mb-1">Your API Balance</p>
-          <p className="text-sm text-gray-400">Check via /api/v1/balance</p>
+
+        {/* Upstream balance card */}
+        <div className={`bg-white rounded-xl shadow-sm border p-4 col-span-2 sm:col-span-2 ${
+          upstream
+            ? upstream.calls_remaining <= 10
+              ? 'border-red-200 bg-red-50'
+              : 'border-green-200 bg-green-50'
+            : 'border-gray-200'
+        }`}>
+          <p className="text-xs text-gray-500 mb-2 font-medium uppercase tracking-wide">
+            Upstream API Balance (vapi.zeltronaddy.in)
+          </p>
+          {upstream ? (
+            <div className="flex items-end gap-6">
+              <div>
+                <p className={`text-3xl font-bold ${
+                  upstream.calls_remaining <= 10 ? 'text-red-600' : 'text-green-600'
+                }`}>
+                  {upstream.calls_remaining}
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">remaining</p>
+              </div>
+              <div className="text-sm text-gray-500 pb-1 space-y-0.5">
+                <p>Used: <span className="font-medium text-gray-700">{upstream.calls_used}</span></p>
+                <p>Total: <span className="font-medium text-gray-700">{upstream.calls_total}</span></p>
+              </div>
+              {upstream.calls_remaining <= 10 && (
+                <p className="text-xs text-red-600 font-medium pb-1 ml-auto">⚠ Low balance — top up soon</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400">Could not fetch — check VAPI_API_KEY</p>
+          )}
         </div>
       </div>
 
