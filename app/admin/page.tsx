@@ -13,26 +13,35 @@ async function logout() {
   redirect('/admin/login')
 }
 
-async function fetchUpstreamBalance() {
+type UpstreamBalance = {
+  user: string
+  calls_total: number
+  calls_used: number
+  calls_remaining: number
+}
+
+async function fetchUpstreamBalance(): Promise<{ data: UpstreamBalance | null; error: string | null }> {
+  const key = process.env.VAPI_API_KEY
+  if (!key) return { data: null, error: 'VAPI_API_KEY env var is not set' }
+
   try {
     const res = await fetch('https://vapi.zeltronaddy.in/v1/balance', {
-      headers: { 'X-API-Key': process.env.VAPI_API_KEY! },
+      headers: { 'X-API-Key': key },
       signal: AbortSignal.timeout(8000),
     })
-    if (!res.ok) return null
-    return res.json() as Promise<{
-      user: string
-      calls_total: number
-      calls_used: number
-      calls_remaining: number
-    }>
-  } catch {
-    return null
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      return { data: null, error: `HTTP ${res.status} — ${body.slice(0, 100)}` }
+    }
+    const data = await res.json()
+    return { data, error: null }
+  } catch (err) {
+    return { data: null, error: err instanceof Error ? err.message : String(err) }
   }
 }
 
 export default async function AdminDashboard() {
-  const [{ data: clients }, upstream] = await Promise.all([
+  const [{ data: clients }, { data: upstream, error: upstreamError }] = await Promise.all([
     supabase.from('clients').select('*').order('created_at', { ascending: false }),
     fetchUpstreamBalance(),
   ])
@@ -99,7 +108,7 @@ export default async function AdminDashboard() {
               )}
             </div>
           ) : (
-            <p className="text-sm text-gray-400">Could not fetch — check VAPI_API_KEY</p>
+            <p className="text-sm text-red-500 font-mono">{upstreamError ?? 'Unknown error'}</p>
           )}
         </div>
       </div>
