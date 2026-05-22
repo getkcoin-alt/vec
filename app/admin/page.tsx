@@ -108,7 +108,12 @@ export default async function AdminDashboard() {
               )}
             </div>
           ) : (
-            <p className="text-sm text-red-500 font-mono">{upstreamError ?? 'Unknown error'}</p>
+            <div className="text-sm text-amber-700">
+              <p className="font-medium">Blocked by Cloudflare</p>
+              <p className="text-xs text-amber-600 mt-0.5">
+                Railway&apos;s datacenter IP is blocked by vapi.zeltronaddy.in — check balance manually or ask the provider to whitelist Railway.
+              </p>
+            </div>
           )}
         </div>
       </div>
