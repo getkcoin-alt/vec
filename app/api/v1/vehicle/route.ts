@@ -53,9 +53,10 @@ export async function GET(request: NextRequest) {
         ))
       }
     } catch (fetchErr) {
-      console.error('Upstream fetch failed:', fetchErr)
+      const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
+      console.error('Upstream fetch failed:', msg)
       return withCors(NextResponse.json(
-        { success: false, error: 'Could not reach upstream API' },
+        { success: false, error: 'Could not reach upstream API', detail: msg },
         { status: 502 }
       ))
     }
