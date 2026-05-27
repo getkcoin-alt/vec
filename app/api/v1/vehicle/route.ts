@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { withCors, optionsResponse } from '@/lib/cors'
 
+const UPSTREAM = 'https://advanced-omega.vercel.app'
+
 export async function OPTIONS() {
   return optionsResponse()
 }
@@ -36,13 +38,9 @@ export async function GET(request: NextRequest) {
     // Call upstream
     let upstreamData: Record<string, unknown>
     try {
-      const upstreamBase = process.env.UPSTREAM_BASE_URL ?? 'https://vapi.zeltronaddy.in'
       const upstream = await fetch(
-        `${upstreamBase}/v1/vehicle?reg=${encodeURIComponent(reg)}`,
-        {
-          headers: { 'X-API-Key': process.env.VAPI_API_KEY! },
-          signal: AbortSignal.timeout(15000),
-        }
+        `${UPSTREAM}/api/vehicle?number=${encodeURIComponent(reg)}`,
+        { signal: AbortSignal.timeout(15000) }
       )
       const text = await upstream.text()
       try {
