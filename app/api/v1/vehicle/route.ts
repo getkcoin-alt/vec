@@ -61,7 +61,14 @@ export async function GET(request: NextRequest) {
       ))
     }
 
-    if (upstreamData.success) {
+    // Treat as failed if upstream says success but data has an error or is empty
+    const data = upstreamData.data as Record<string, unknown> | undefined
+    const hasDataError = data && (
+      (typeof data.Error_Message === 'string' && data.Error_Message.length > 0) ||
+      (typeof data.error === 'string' && data.error.length > 0)
+    )
+
+    if (upstreamData.success && !hasDataError) {
       await Promise.all([
         supabase
           .from('clients')
