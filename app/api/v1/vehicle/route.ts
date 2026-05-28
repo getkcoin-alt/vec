@@ -61,14 +61,14 @@ export async function GET(request: NextRequest) {
       ))
     }
 
-    // Treat as failed if upstream says success but data has an error or is empty
+    // Only charge if core fields are actually populated
     const data = upstreamData.data as Record<string, unknown> | undefined
-    const hasDataError = data && (
-      (typeof data.Error_Message === 'string' && data.Error_Message.length > 0) ||
-      (typeof data.error === 'string' && data.error.length > 0)
-    )
+    const ownerName = data?.Owner_Name ?? data?.owner_name ?? ''
+    const makerName = data?.Make_Name ?? data?.maker_name ?? ''
+    const hasUsefulData = typeof ownerName === 'string' && ownerName.trim().length > 0
+      || typeof makerName === 'string' && makerName.trim().length > 0
 
-    if (upstreamData.success && !hasDataError) {
+    if (upstreamData.success && hasUsefulData) {
       await Promise.all([
         supabase
           .from('clients')
