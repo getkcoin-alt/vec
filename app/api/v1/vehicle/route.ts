@@ -61,12 +61,12 @@ export async function GET(request: NextRequest) {
       ))
     }
 
-    // Only charge if core fields are actually populated
+    // Only charge if core fields are actually populated (handles both old and new API field names)
     const data = upstreamData.data as Record<string, unknown> | undefined
-    const ownerName = data?.Owner_Name ?? data?.owner_name ?? ''
-    const makerName = data?.Make_Name ?? data?.maker_name ?? ''
-    const hasUsefulData = typeof ownerName === 'string' && ownerName.trim().length > 0
-      || typeof makerName === 'string' && makerName.trim().length > 0
+    const ownerName = data?.owner_name ?? data?.Owner_Name ?? ''
+    const makerName = data?.maker_description ?? data?.maker_name ?? data?.Make_Name ?? ''
+    const hasUsefulData = (typeof ownerName === 'string' && ownerName.trim().length > 0)
+      || (typeof makerName === 'string' && makerName.trim().length > 0)
 
     if (upstreamData.success && hasUsefulData) {
       await Promise.all([
