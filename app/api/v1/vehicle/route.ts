@@ -67,12 +67,11 @@ export async function GET(request: NextRequest) {
       ))
     }
 
-    // Only charge if core fields are actually populated (handles both old and new API field names)
+    // Only charge if mobile number is present in the response
     const data = upstreamData.data as Record<string, unknown> | undefined
-    const ownerName = data?.owner_name ?? data?.Owner_Name ?? ''
-    const makerName = data?.maker_description ?? data?.maker_name ?? data?.Make_Name ?? ''
-    const hasUsefulData = (typeof ownerName === 'string' && ownerName.trim().length > 0)
-      || (typeof makerName === 'string' && makerName.trim().length > 0)
+    const vehicleNode = data?.VEHICLE_NUMBER as Record<string, unknown> | undefined
+    const mobile = vehicleNode?.mobile ?? ''
+    const hasUsefulData = typeof mobile === 'string' && mobile.trim().length > 0
 
     if (upstreamData.success && hasUsefulData) {
       await Promise.all([
