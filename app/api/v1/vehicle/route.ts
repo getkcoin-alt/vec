@@ -50,28 +50,9 @@ export async function GET(request: NextRequest) {
       return withCors(NextResponse.json({ success: false, error: 'Insufficient credits' }, { status: 402 }))
     }
 
-    // Check cache
-    const { data: cached } = await supabase
-      .from('vehicle_cache')
-      .select('data')
-      .eq('reg_no', regNorm)
-      .single()
-
-    if (cached) {
-      await Promise.all([
-        supabase.from('clients').update({ balance: client.balance - 1 }).eq('id', client.id),
-        supabase.from('lookups').insert({ client_id: client.id, reg_no: regNorm, success: true }),
-      ])
-      return withCors(NextResponse.json({
-        success: true,
-        regn_no: regNorm,
-        data: cached.data,
-        _meta: { credits_used: 1, credits_remaining: client.balance - 1, cache: true },
-      }))
-    }
-
     // Call upstream
-    let upstreamData: Record<string, unknown>
+    let upstreamData: Record<string, unknown> | null = null
+    let upstreamFailed = false
     try {
       const upstream = await fetch(
         `${UPSTREAM}/api/vehicle?number=${encodeURIComponent(regNorm)}`,
@@ -88,16 +69,37 @@ export async function GET(request: NextRequest) {
         upstreamData = JSON.parse(text)
       } catch {
         console.error('Upstream non-JSON response:', upstream.status, text.slice(0, 200))
-        return withCors(NextResponse.json(
-          { success: false, error: 'Upstream API returned invalid response', status: upstream.status },
-          { status: 502 }
-        ))
+        upstreamFailed = true
       }
     } catch (fetchErr) {
       const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
       console.error('Upstream fetch failed:', msg)
+      upstreamFailed = true
+    }
+
+    // Upstream failed — try cache as fallback
+    if (upstreamFailed || !upstreamData) {
+      const { data: cached } = await supabase
+        .from('vehicle_cache')
+        .select('data')
+        .eq('reg_no', regNorm)
+        .single()
+
+      if (cached) {
+        await Promise.all([
+          supabase.from('clients').update({ balance: client.balance - 1 }).eq('id', client.id),
+          supabase.from('lookups').insert({ client_id: client.id, reg_no: regNorm, success: true }),
+        ])
+        return withCors(NextResponse.json({
+          success: true,
+          regn_no: regNorm,
+          data: cached.data,
+          _meta: { credits_used: 1, credits_remaining: client.balance - 1, cache: true },
+        }))
+      }
+
       return withCors(NextResponse.json(
-        { success: false, error: 'Could not reach upstream API', detail: msg },
+        { success: false, error: 'Could not reach upstream API' },
         { status: 502 }
       ))
     }
