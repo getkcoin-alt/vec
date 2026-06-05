@@ -119,47 +119,84 @@ export default function DocsPage() {
         </h3>
         <Block>{`{
   "success": true,
-  "regn_no": "UP16EJ4689",
+  "regn_no": "RJ27UD4410",
   "data": {
-    "owner_name": "CHOTU MUKHIYA",
-    "owner_number": "1",
-    "mobile_number": "",
-    "permanent_address": "BOX NO,B33, CHIJARSI S, NOIDA, Gautam Buddha Nagar, Uttar Pradesh",
-    "present_address": "BOX NO,B33, CHIJARSI S, NOIDA, Gautam Buddha Nagar, Uttar Pradesh",
-    "registration_date": "2024-06-10",
-    "fit_up_to": "2039-06-09",
-    "registered_at": "Noida, Uttar Pradesh",
-    "rto_code": "",
-    "rc_status": "ACTIVE",
-    "maker_description": "HERO MOTOCORP LTD",
-    "maker_model": "DESTINI 125 LX",
-    "variant": null,
-    "body_type": "SOLO WITH PILLION",
-    "vehicle_category_description": "M-Cycle/Scooter(2WN)",
-    "fuel_type": "PETROL",
-    "color": "PANTHER BLACK",
-    "cubic_capacity": "124.60",
-    "seat_capacity": "2",
-    "wheelbase": "1245",
-    "unladen_weight": "115",
-    "vehicle_gross_weight": "245",
-    "norms_type": "BHARAT STAGE VI",
-    "vehicle_chasi_number": "MBLJFN231PGL01031",
-    "vehicle_engine_number": "JF17ENPGL05863",
-    "manufacturing_date": "11/2023",
-    "insurance_company": "National Insurance Co. Ltd.",
-    "insurance_policy_number": "39010231246200096712",
-    "insurance_upto": "2029-06-06",
-    "financer": "L & T FINANCE LTD.",
-    "financed": true,
-    "blacklist_status": "",
-    "challan_details": null
+    "VEHICLE_NUMBER": {
+      "mobile": "7230018891",
+      "success": true,
+      "vehicle": "RJ27UD4410"
+    },
+    "message": "This action has been successful.",
+    "response": {
+      "regNo": "RJ27UD4410",
+      "regDate": "19/2/2018",
+      "regAuthority": "UDAIPUR RTO, Rajasthan",
+      "rtoCode": "RJ-27",
+      "manufacturer": "MAHINDRA",
+      "vehicle": "THAR",
+      "variant": "DI 2WD BSIV (2523 cc)",
+      "vehicleClass": "Motor Car(LMV)",
+      "vehicleType": "PrivateCar",
+      "fuelType": "DIESEL",
+      "cubicCapacity": 2523,
+      "seatCapacity": 7,
+      "chassis": "MA1AH2TBKH1E46216",
+      "engine": "TBH1E61422",
+      "manufacturerMonthYear": "5/2017",
+      "permAddress": "H.NO.122 ROOP NAGAR, HIRAN MAGRI SEC.3, 313001",
+      "presentAddress": "H.NO.122 ROOP NAGAR, HIRAN MAGRI SEC.3, 313001",
+      "financerName": "STATE BANK OF INDIA",
+      "insuranceCompanyName": "IFFCO Tokio General Insurance Co. Ltd.",
+      "insurancePolicyNumber": "N5183569",
+      "insuranceUpto": "8/11/2026",
+      "insuranceExpired": false,
+      "isCommercial": false,
+      "puccNumber": "HR05505570001412",
+      "puccValidUpto": "28-08-2026"
+    },
+    "statusCode": 200
   },
   "_meta": {
     "credits_used": 1,
     "credits_remaining": 49
   }
 }`}</Block>
+
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mt-5 mb-2">Key fields</h3>
+        <div className="border border-gray-200 rounded-lg overflow-hidden mb-5">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-left">
+              <tr>
+                <th className="px-4 py-2 font-medium text-gray-600">Path</th>
+                <th className="px-4 py-2 font-medium text-gray-600">Description</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {[
+                ['data.VEHICLE_NUMBER.mobile', 'Owner mobile number (present only on successful hit)'],
+                ['data.response.regNo', 'Registration number'],
+                ['data.response.manufacturer', 'Manufacturer name'],
+                ['data.response.vehicle', 'Model name'],
+                ['data.response.variant', 'Variant / trim'],
+                ['data.response.vehicleClass', 'Vehicle class (e.g. Motor Car(LMV))'],
+                ['data.response.fuelType', 'Fuel type'],
+                ['data.response.chassis', 'Chassis number'],
+                ['data.response.engine', 'Engine number'],
+                ['data.response.regDate', 'Registration date'],
+                ['data.response.regAuthority', 'Registering RTO'],
+                ['data.response.financerName', 'Financer / hypothecation'],
+                ['data.response.insuranceCompanyName', 'Insurer name'],
+                ['data.response.insuranceUpto', 'Insurance expiry date'],
+                ['data.response.permAddress', 'Permanent address'],
+              ].map(([path, desc]) => (
+                <tr key={path}>
+                  <td className="px-4 py-2 font-mono text-blue-700 text-xs">{path}</td>
+                  <td className="px-4 py-2 text-gray-600">{desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mt-5 mb-2">
           Response — Not Found <span className="text-yellow-600 font-normal normal-case text-xs ml-1">HTTP 200 · 0 credits deducted</span>
