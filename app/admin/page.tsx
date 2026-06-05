@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import AddClientForm from './_components/AddClientForm'
 import ClientCard from './_components/ClientCard'
+import ApiTester from './_components/ApiTester'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
@@ -51,6 +52,9 @@ export default async function AdminDashboard() {
           <p className="text-3xl font-bold text-blue-600">{totalCredits}</p>
         </div>
       </div>
+
+      {/* API Tester */}
+      {clients && clients.length > 0 && <ApiTester clients={clients} />}
 
       {/* Add client */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-8">
