@@ -8,6 +8,19 @@ export async function OPTIONS() {
   return optionsResponse()
 }
 
+function cleanData(data: Record<string, unknown>): Record<string, unknown> {
+  const { expiry, message, req_left, transKey, ...rest } = data
+  void expiry; void message; void req_left; void transKey
+
+  const response = rest.response as Record<string, unknown> | undefined
+  if (response) {
+    const { transKey: _t, eDate: _e, lmDate: _l, ...cleanResponse } = response
+    void _t; void _e; void _l
+    return { ...rest, response: cleanResponse }
+  }
+  return rest
+}
+
 export async function GET(request: NextRequest) {
   try {
     const apiKey = request.headers.get('x-api-key')
@@ -19,6 +32,8 @@ export async function GET(request: NextRequest) {
     if (!reg) {
       return withCors(NextResponse.json({ success: false, error: 'Missing reg parameter' }, { status: 400 }))
     }
+
+    const regNorm = reg.toUpperCase().replace(/[\s-]/g, '')
 
     // Validate client
     const { data: client, error: clientErr } = await supabase
@@ -35,11 +50,31 @@ export async function GET(request: NextRequest) {
       return withCors(NextResponse.json({ success: false, error: 'Insufficient credits' }, { status: 402 }))
     }
 
+    // Check cache
+    const { data: cached } = await supabase
+      .from('vehicle_cache')
+      .select('data')
+      .eq('reg_no', regNorm)
+      .single()
+
+    if (cached) {
+      await Promise.all([
+        supabase.from('clients').update({ balance: client.balance - 1 }).eq('id', client.id),
+        supabase.from('lookups').insert({ client_id: client.id, reg_no: regNorm, success: true }),
+      ])
+      return withCors(NextResponse.json({
+        success: true,
+        regn_no: regNorm,
+        data: cached.data,
+        _meta: { credits_used: 1, credits_remaining: client.balance - 1, cache: true },
+      }))
+    }
+
     // Call upstream
     let upstreamData: Record<string, unknown>
     try {
       const upstream = await fetch(
-        `${UPSTREAM}/api/vehicle?number=${encodeURIComponent(reg)}`,
+        `${UPSTREAM}/api/vehicle?number=${encodeURIComponent(regNorm)}`,
         {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -74,41 +109,26 @@ export async function GET(request: NextRequest) {
     const hasUsefulData = typeof mobile === 'string' && mobile.trim().length > 0
 
     if (upstreamData.success && hasUsefulData) {
+      const cleaned = cleanData(data!)
       await Promise.all([
-        supabase
-          .from('clients')
-          .update({ balance: client.balance - 1 })
-          .eq('id', client.id),
-        supabase.from('lookups').insert({
-          client_id: client.id,
-          reg_no: reg.toUpperCase(),
-          success: true,
-        }),
+        supabase.from('clients').update({ balance: client.balance - 1 }).eq('id', client.id),
+        supabase.from('lookups').insert({ client_id: client.id, reg_no: regNorm, success: true }),
+        supabase.from('vehicle_cache').upsert({ reg_no: regNorm, data: cleaned, cached_at: new Date().toISOString() }),
       ])
 
       return withCors(NextResponse.json({
         success: true,
         regn_no: upstreamData.regn_no,
-        data: upstreamData.data,
-        _meta: {
-          credits_used: 1,
-          credits_remaining: client.balance - 1,
-        },
+        data: cleaned,
+        _meta: { credits_used: 1, credits_remaining: client.balance - 1 },
       }))
     }
 
-    await supabase.from('lookups').insert({
-      client_id: client.id,
-      reg_no: reg.toUpperCase(),
-      success: false,
-    })
+    await supabase.from('lookups').insert({ client_id: client.id, reg_no: regNorm, success: false })
 
     return withCors(NextResponse.json({
       ...upstreamData,
-      _meta: {
-        credits_used: 0,
-        credits_remaining: client.balance,
-      },
+      _meta: { credits_used: 0, credits_remaining: client.balance },
     }))
 
   } catch (err) {

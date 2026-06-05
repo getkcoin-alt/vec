@@ -126,7 +126,6 @@ export default function DocsPage() {
       "success": true,
       "vehicle": "RJ27UD4410"
     },
-    "message": "This action has been successful.",
     "response": {
       "regNo": "RJ27UD4410",
       "regDate": "19/2/2018",
@@ -153,8 +152,7 @@ export default function DocsPage() {
       "isCommercial": false,
       "puccNumber": "HR05505570001412",
       "puccValidUpto": "28-08-2026"
-    },
-    "statusCode": 200
+    }
   },
   "_meta": {
     "credits_used": 1,
