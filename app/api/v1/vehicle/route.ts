@@ -61,26 +61,21 @@ export async function GET(request: NextRequest) {
       return withCors(NextResponse.json({ success: false, error: 'Could not reach upstream API', detail: msg }, { status: 502 }))
     }
 
-    // Upstream has two response shapes:
-    // Shape A (hit with mobile): data = { data: { VEHICLE_NUMBER, response, ... }, regn_no, success }
-    // Shape B (hit without mobile): data = { expiry, response, statusCode, transKey }
     const payload = upstreamData.data as Record<string, unknown> | undefined
-    const isShapeA = payload && typeof payload.data === 'object' && payload.data !== null
-    const raw = (isShapeA ? payload!.data : payload) as Record<string, unknown> | undefined
-    const regnNo = isShapeA ? ((payload!.regn_no as string) || regNorm) : regNorm
 
-    // Strip internal upstream fields
-    const { expiry: _e, message: _m, req_left: _r, transKey: _t, statusCode: _s, ...vehicleData } = raw ?? {}
+    // Strip internal upstream fields before passing to client
+    const { expiry: _e, message: _m, req_left: _r, transKey: _t, statusCode: _s, ...cleanPayload } = payload ?? {}
     void _e; void _m; void _r; void _t; void _s
 
-    // Also strip transKey from nested response
-    if (vehicleData.response && typeof vehicleData.response === 'object') {
-      const { transKey: _rt, ...cleanResponse } = vehicleData.response as Record<string, unknown>
+    if (cleanPayload.response && typeof cleanPayload.response === 'object') {
+      const { transKey: _rt, ...cleanResponse } = cleanPayload.response as Record<string, unknown>
       void _rt
-      vehicleData.response = cleanResponse
+      cleanPayload.response = cleanResponse
     }
 
-    const mobile = (vehicleData?.VEHICLE_NUMBER as Record<string, unknown> | undefined)?.mobile ?? ''
+    // Mobile lives at data.data.VEHICLE_NUMBER.mobile when present
+    const inner = payload?.data as Record<string, unknown> | undefined
+    const mobile = (inner?.VEHICLE_NUMBER as Record<string, unknown> | undefined)?.mobile ?? ''
     const hasUsefulData = typeof mobile === 'string' && mobile.trim().length > 0
 
     if (upstreamData.success && hasUsefulData) {
@@ -89,18 +84,14 @@ export async function GET(request: NextRequest) {
         supabase.from('lookups').insert({ client_id: client.id, reg_no: regNorm, success: true }),
       ])
       return withCors(NextResponse.json({
-        success: true,
-        regn_no: regnNo,
-        data: vehicleData,
+        ...cleanPayload,
         _meta: { credits_used: 1, credits_remaining: client.balance - 1 },
       }))
     }
 
     await supabase.from('lookups').insert({ client_id: client.id, reg_no: regNorm, success: false })
     return withCors(NextResponse.json({
-      success: false,
-      regn_no: regnNo,
-      data: vehicleData,
+      ...cleanPayload,
       _meta: { credits_used: 0, credits_remaining: client.balance },
     }))
 
