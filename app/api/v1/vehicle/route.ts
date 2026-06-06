@@ -66,8 +66,19 @@ export async function GET(request: NextRequest) {
     // Shape B (hit without mobile): data = { expiry, response, statusCode, transKey }
     const payload = upstreamData.data as Record<string, unknown> | undefined
     const isShapeA = payload && typeof payload.data === 'object' && payload.data !== null
-    const vehicleData = (isShapeA ? payload!.data : payload) as Record<string, unknown> | undefined
+    const raw = (isShapeA ? payload!.data : payload) as Record<string, unknown> | undefined
     const regnNo = isShapeA ? ((payload!.regn_no as string) || regNorm) : regNorm
+
+    // Strip internal upstream fields
+    const { expiry: _e, message: _m, req_left: _r, transKey: _t, statusCode: _s, ...vehicleData } = raw ?? {}
+    void _e; void _m; void _r; void _t; void _s
+
+    // Also strip transKey from nested response
+    if (vehicleData.response && typeof vehicleData.response === 'object') {
+      const { transKey: _rt, ...cleanResponse } = vehicleData.response as Record<string, unknown>
+      void _rt
+      vehicleData.response = cleanResponse
+    }
 
     const mobile = (vehicleData?.VEHICLE_NUMBER as Record<string, unknown> | undefined)?.mobile ?? ''
     const hasUsefulData = typeof mobile === 'string' && mobile.trim().length > 0
