@@ -61,10 +61,15 @@ export async function GET(request: NextRequest) {
       return withCors(NextResponse.json({ success: false, error: 'Could not reach upstream API', detail: msg }, { status: 502 }))
     }
 
-    // upstream wraps payload: { success, data: { success, regn_no, data: { VEHICLE_NUMBER, response, ... } } }
+    // Upstream has two response shapes:
+    // Shape A (hit with mobile): data = { data: { VEHICLE_NUMBER, response, ... }, regn_no, success }
+    // Shape B (hit without mobile): data = { expiry, response, statusCode, transKey }
     const payload = upstreamData.data as Record<string, unknown> | undefined
-    const inner = payload?.data as Record<string, unknown> | undefined
-    const mobile = (inner?.VEHICLE_NUMBER as Record<string, unknown> | undefined)?.mobile ?? ''
+    const isShapeA = payload && typeof payload.data === 'object' && payload.data !== null
+    const vehicleData = (isShapeA ? payload!.data : payload) as Record<string, unknown> | undefined
+    const regnNo = isShapeA ? ((payload!.regn_no as string) || regNorm) : regNorm
+
+    const mobile = (vehicleData?.VEHICLE_NUMBER as Record<string, unknown> | undefined)?.mobile ?? ''
     const hasUsefulData = typeof mobile === 'string' && mobile.trim().length > 0
 
     if (upstreamData.success && hasUsefulData) {
@@ -73,14 +78,18 @@ export async function GET(request: NextRequest) {
         supabase.from('lookups').insert({ client_id: client.id, reg_no: regNorm, success: true }),
       ])
       return withCors(NextResponse.json({
-        ...payload,
+        success: true,
+        regn_no: regnNo,
+        data: vehicleData,
         _meta: { credits_used: 1, credits_remaining: client.balance - 1 },
       }))
     }
 
     await supabase.from('lookups').insert({ client_id: client.id, reg_no: regNorm, success: false })
     return withCors(NextResponse.json({
-      ...payload,
+      success: false,
+      regn_no: regnNo,
+      data: vehicleData,
       _meta: { credits_used: 0, credits_remaining: client.balance },
     }))
 
