@@ -61,21 +61,10 @@ export async function GET(request: NextRequest) {
       return withCors(NextResponse.json({ success: false, error: 'Could not reach upstream API', detail: msg }, { status: 502 }))
     }
 
-    const payload = upstreamData.data as Record<string, unknown> | undefined
-
-    // Strip internal upstream fields before passing to client
-    const { expiry: _e, message: _m, req_left: _r, transKey: _t, statusCode: _s, ...cleanPayload } = payload ?? {}
-    void _e; void _m; void _r; void _t; void _s
-
-    if (cleanPayload.response && typeof cleanPayload.response === 'object') {
-      const { transKey: _rt, ...cleanResponse } = cleanPayload.response as Record<string, unknown>
-      void _rt
-      cleanPayload.response = cleanResponse
-    }
-
-    // Mobile lives at data.data.VEHICLE_NUMBER.mobile when present
-    const inner = payload?.data as Record<string, unknown> | undefined
-    const mobile = (inner?.VEHICLE_NUMBER as Record<string, unknown> | undefined)?.mobile ?? ''
+    // Deduct credit only when mobile number is present in the response
+    const inner = upstreamData.data as Record<string, unknown> | undefined
+    const vehicleNode = inner?.data as Record<string, unknown> | undefined
+    const mobile = (vehicleNode?.VEHICLE_NUMBER as Record<string, unknown> | undefined)?.mobile ?? ''
     const hasUsefulData = typeof mobile === 'string' && mobile.trim().length > 0
 
     if (upstreamData.success && hasUsefulData) {
@@ -84,14 +73,14 @@ export async function GET(request: NextRequest) {
         supabase.from('lookups').insert({ client_id: client.id, reg_no: regNorm, success: true }),
       ])
       return withCors(NextResponse.json({
-        ...cleanPayload,
+        ...upstreamData,
         _meta: { credits_used: 1, credits_remaining: client.balance - 1 },
       }))
     }
 
     await supabase.from('lookups').insert({ client_id: client.id, reg_no: regNorm, success: false })
     return withCors(NextResponse.json({
-      ...cleanPayload,
+      ...upstreamData,
       _meta: { credits_used: 0, credits_remaining: client.balance },
     }))
 
