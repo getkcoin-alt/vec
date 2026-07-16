@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { withCors, optionsResponse } from '@/lib/cors'
-import { execFile } from 'child_process'
-import { promisify } from 'util'
-
-const execFileAsync = promisify(execFile)
 
 const VAPI_URL = 'https://vapi-lime-ten.vercel.app'
 export async function OPTIONS() {
@@ -38,18 +34,19 @@ export async function GET(request: NextRequest) {
 
   const regUpper = encodeURIComponent(reg.toUpperCase())
 
+  const PYTHON_API_URL = process.env.PYTHON_API_URL || 'http://localhost:5000'
   const [numBody, vapiRes] = await Promise.all([
-    execFileAsync('python3', ['num.py', reg.toUpperCase()])
-      .then(({ stdout }) => {
+    fetch(`${PYTHON_API_URL}/mobile?reg=${regUpper}`)
+      .then(async (res) => {
         try {
-          return JSON.parse(stdout)
+          return await res.json()
         } catch (err) {
-          return { error: 'JSON Parse Error', stdout }
+          return { error: 'JSON Parse Error', details: 'Failed to parse python service response' }
         }
       })
       .catch((e) => {
-        console.error('Python script error:', e)
-        return { error: 'Execution Failed', details: e.message, stderr: e.stderr }
+        console.error('Python API fetch error:', e)
+        return { error: 'Execution Failed', details: e.message }
       }),
     fetch(`${VAPI_URL}/vehicle/full-details?rc=${regUpper}`).catch(() => null)
   ])
