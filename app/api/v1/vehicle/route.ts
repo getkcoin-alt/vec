@@ -60,7 +60,12 @@ export async function GET(request: NextRequest) {
   }
 
   const mobile = numBody?.mobile_number || vapiBody?.owner_section?.mobile_number
-  const charged = typeof mobile === 'string' && mobile.trim().length > 0
+  
+  // Deduct credit if VAPI returned successfully (not 500) or if python script succeeded.
+  // Do not charge if VAPI had a 500/tech error AND python script failed/had tech error.
+  const isVapiValid = vapiRes && vapiRes.status < 500
+  const isNumValid = numBody && !numBody.error
+  const charged = isVapiValid || isNumValid
 
   const body = {
     ...vapiBody,
