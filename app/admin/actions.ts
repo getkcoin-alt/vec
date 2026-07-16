@@ -6,9 +6,10 @@ import { supabase } from '@/lib/supabase'
 
 export async function addClient(formData: FormData) {
   const name = (formData.get('name') as string)?.trim()
+  const customToken = (formData.get('token') as string)?.trim()
   if (!name) return { error: 'Name is required' }
 
-  const token = 'vrc_' + randomBytes(20).toString('hex')
+  const token = customToken || ('vrc_' + randomBytes(20).toString('hex'))
 
   const { error } = await supabase.from('clients').insert({ name, token, balance: 0 })
   if (error) return { error: error.message }

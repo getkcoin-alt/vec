@@ -34,6 +34,17 @@ export default function AddClientForm() {
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
+      <div className="flex-1">
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+          Token / PIN (Optional)
+        </label>
+        <input
+          type="text"
+          name="token"
+          placeholder="e.g. 8090"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
       <button
         type="submit"
         disabled={isPending}
