@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { withCors, optionsResponse } from '@/lib/cors'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
 
-const UPSTREAM = 'https://advanced-omega.vercel.app'
+const execFileAsync = promisify(execFile)
 
+const VAPI_URL = 'https://vapi-lime-ten.vercel.app'
 export async function OPTIONS() {
   return optionsResponse()
 }
@@ -33,11 +36,28 @@ export async function GET(request: NextRequest) {
     return withCors(NextResponse.json({ success: false, error: 'Insufficient credits' }, { status: 402 }))
   }
 
-  const upstreamRes = await fetch(`${UPSTREAM}/api/vehicle?number=${encodeURIComponent(reg.toUpperCase())}`)
-  const body = await upstreamRes.json()
+  const regUpper = encodeURIComponent(reg.toUpperCase())
 
-  const mobile = body?.data?.data?.VEHICLE_NUMBER?.mobile
+  const [numBody, vapiRes] = await Promise.all([
+    execFileAsync('python3', ['num.py', reg.toUpperCase(), '--no-proxy'])
+      .then(({ stdout }) => JSON.parse(stdout))
+      .catch((e) => {
+        console.error('Python script error:', e);
+        return {};
+      }),
+    fetch(`${VAPI_URL}/vehicle/full-details?rc=${regUpper}`).catch(() => null)
+  ])
+
+  const vapiBody = vapiRes ? await vapiRes.json().catch(() => ({})) : {}
+
+  const mobile = numBody?.mobile_number || vapiBody?.owner_section?.mobile_number
   const charged = typeof mobile === 'string' && mobile.trim().length > 0
+
+  const body = {
+    ...vapiBody,
+    mobile_data: numBody,
+    success: vapiBody?.success || numBody?.success || false
+  }
 
   if (charged) {
     await Promise.all([
