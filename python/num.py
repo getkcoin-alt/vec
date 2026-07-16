@@ -2,9 +2,15 @@ import sys, json, re, time, os, random, hashlib, ssl
 import requests as reqs_lib
 from requests.adapters import HTTPAdapter
 from urllib3.util.ssl_ import create_urllib3_context
-from datetime import datetime, timedelta
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import warnings
+import uuid
+import base64
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import padding, serialization
+from cryptography.hazmat.primitives.asymmetric import padding as asym_padding
+from curl_cffi import requests as curl_reqs
 
 warnings.filterwarnings("ignore")
 
@@ -203,8 +209,115 @@ def pad_chassis(chassis_last):
     return chassis_last[-5:].zfill(5)
 
 
+# ── ICICI Lombard Quote API logic for chassis lookup ──
+FIXED_KEY = b"7080808080808083"
+FIXED_IV  = b"9080808080808083"
+ENCODING  = "utf-8"
+
+RSA_PUBLIC_KEY_PEM = b"""-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqJB60iVd+Thl+P5+Ore0
+abr7Ae+ANK+9jCj7UbYyXNSIbP6g3QMd4LhAAojln4VZRgpSBKjZ8YBc1yGgb516
+BOzfOBeqN4WtwN764UwFCyMaF0nA50BnjcMfGKLPvmhAbeRtaG06GtLhbAS9z57N
+QdEXivHzlRZJehzf7IHcpIUUDXKcaXe2/dHkAGk2zLhdrY9VErAxVj1g39qMNSvA
+JlrVT+heuR3MWwdle9KNgVFgg7AXybBhorb9GIuMsQS6UTxA/HIvSZUqAetDRfgG
+hTCss9Kq6EqJV92u4AiOIngstIOA3seLWx48N4xR0jfmZZElwlJIHeedgWxDsEN4
+/wIDAQAB
+-----END PUBLIC KEY-----"""
+
+BASE_URL       = "https://www.icicilombard.com"
+TOKEN_URL      = BASE_URL + "/digital/v2.0/auth-api/client/initialize"
+RC_DETAILS_URL = BASE_URL + "/digital/v2.0/car-quote-api/RcDetails"
+
+def _aes_encrypt(data: str, key: bytes, iv: bytes) -> str:
+    raw = data.encode(ENCODING)
+    padder = padding.PKCS7(128).padder()
+    padded = padder.update(raw) + padder.finalize()
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+    enc = cipher.encryptor()
+    return base64.b64encode(enc.update(padded) + enc.finalize()).decode(ENCODING)
+
+def generate_kv() -> str:
+    return uuid.uuid4().hex
+
+def encrypt_kv_rsa(kv: str) -> str:
+    pub_key = serialization.load_pem_public_key(RSA_PUBLIC_KEY_PEM, backend=default_backend())
+    encrypted = pub_key.encrypt(kv.encode(ENCODING), asym_padding.PKCS1v15())
+    return base64.b64encode(encrypted).decode(ENCODING)
+
+def encrypt_body(data: str, kv: str) -> str:
+    key = kv[:16].encode(ENCODING)
+    iv  = kv[16:].encode(ENCODING)
+    return "e01" + _aes_encrypt(data, key, iv)
+
+def get_api_binding(client_id: str = "1") -> str:
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return _aes_encrypt(f"{client_id}|{ts}", FIXED_KEY, FIXED_IV)
+
+def fetch_chassis_icici(reg_no, proxy_url=None):
+    s = curl_reqs.Session(impersonate="chrome124")
+    s.headers.update({
+        "accept": "application/json, text/plain, */*",
+        "content-type": "application/json",
+        "sec-ch-ua": '"Not/A)Brand";v="99", "Google Chrome";v="124", "Chromium";v="124"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"macOS"',
+        "deviceid": "d1234",
+        "efid": "true",
+        "version": "v6.1.1",
+        "gclid": "",
+    })
+    if proxy_url:
+        s.proxies = {"http": proxy_url, "https": proxy_url}
+
+    def _post(url: str, payload: dict, token: str = None, client_id: str = "1", referer: str = None) -> dict:
+        kv = generate_kv()
+        headers = {
+            "Kv": encrypt_kv_rsa(kv),
+            "apibinding": get_api_binding(client_id),
+            "authorization": f"Bearer {token}" if token else "Bearer",
+            "corelationid": str(uuid.uuid4()),
+            "referer": referer or BASE_URL + "/motor-insurance/car-insurance",
+        }
+        body = json.dumps({"msg": encrypt_body(json.dumps(payload), kv)})
+        resp = s.post(url, data=body, headers=headers, timeout=15)
+        resp.raise_for_status()
+        return resp.json()
+
+    token_data = _post(TOKEN_URL, {"Client": "website", "Scope": "MvImfz1HGC4UzIbv6oQT4UvKT83p"})
+    token = token_data.get("Passcode") or token_data.get("authToken")
+    client_id = str(token_data.get("clientId") or "1")
+    if not token:
+        raise RuntimeError(f"Token not found: {token_data}")
+
+    rc_data = _post(
+        RC_DETAILS_URL,
+        {"RegistrationNumber": reg_no.upper()},
+        token=token, client_id=client_id,
+        referer=BASE_URL + "/motor-insurance/car-insurance/get-quote/select-plans",
+    )
+    chassis = rc_data.get("ChassisNo", "").replace(" ", "")
+    engine = rc_data.get("EngineNo", "")
+    if not chassis:
+        raise ValueError(f"Chassis not found in ICICI response: {rc_data}")
+    return chassis, engine
+
+
 def fetch_chassis(reg_no):
     last_exc = None
+    
+    # Try ICICI Lombard first (Direct & Fast)
+    for attempt in range(2):
+        try:
+            proxy = pick_proxy() if attempt == 1 else None
+            proxy_url = proxy.get("http") if proxy else None
+            chassis, engine = fetch_chassis_icici(reg_no, proxy_url=proxy_url)
+            if chassis:
+                return chassis, engine
+        except Exception as e:
+            last_exc = e
+            time.sleep(0.5)
+
+    # Fallback to old Cloudflare worker API
     for attempt in range(2):
         try:
             proxy = pick_proxy() if attempt == 1 else None
@@ -229,7 +342,8 @@ def fetch_chassis(reg_no):
         except Exception as e:
             last_exc = e
             time.sleep(0.5)
-    raise Exception(f"Chassis worker unreachable after retries: {last_exc}")
+            
+    raise Exception(f"All chassis lookup methods failed. Last error: {last_exc}")
 
 
 def get_mobile(reg_no, chassis_no_last5=None, use_proxy=True):
