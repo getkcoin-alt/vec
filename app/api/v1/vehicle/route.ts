@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
   const regUpper = encodeURIComponent(reg.toUpperCase())
 
   const [numBody, vapiRes] = await Promise.all([
-    execFileAsync('python3', ['num.py', reg.toUpperCase(), '--no-proxy'])
+    execFileAsync('python3', ['num.py', reg.toUpperCase()])
       .then(({ stdout }) => {
         try {
           return JSON.parse(stdout)

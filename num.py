@@ -37,13 +37,22 @@ MAX_VAHAN_RETRIES  = 4
 PROXY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "proxy.txt")
 
 def _load_proxies():
-    """Load proxies from proxy.txt (one per line)."""
+    """Load proxies from proxy.txt or INDIAN_PROXY env var."""
+    proxies = []
+    # First check environment variable
+    env_proxy = os.environ.get("INDIAN_PROXY")
+    if env_proxy:
+        proxies.extend([p.strip() for p in env_proxy.split(",") if p.strip()])
+        
+    # Then check file
     try:
         with open(PROXY_FILE, "r") as f:
-            return [line.strip() for line in f if line.strip()]
+            proxies.extend([line.strip() for line in f if line.strip()])
     except FileNotFoundError:
-        sys.stderr.write(f"⚠️  proxy.txt not found at {PROXY_FILE}, no proxies loaded.\n")
-        return []
+        if not proxies:
+            sys.stderr.write(f"⚠️  No INDIAN_PROXY env var and proxy.txt not found at {PROXY_FILE}, no proxies loaded.\n")
+            
+    return proxies
 
 PROXIES = _load_proxies()
 PRIMARY_PROXIES = PROXIES[:35]
