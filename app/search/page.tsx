@@ -12,6 +12,14 @@ export default function UserPortal() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  function handleCopyJson() {
+    if (!result) return
+    navigator.clipboard.writeText(JSON.stringify(result, null, 2))
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
@@ -214,8 +222,21 @@ export default function UserPortal() {
               </dl>
               
               <div className="px-4 py-5 sm:px-6 border-t border-gray-200">
-                 <details>
-                   <summary className="text-sm text-blue-600 cursor-pointer outline-none">View Full Raw JSON</summary>
+                 <details className="group">
+                   <summary className="text-sm text-blue-600 cursor-pointer outline-none select-none flex items-center justify-between">
+                     <span>View Full Raw JSON</span>
+                     <button
+                       type="button"
+                       onClick={(e) => {
+                         e.preventDefault();
+                         e.stopPropagation();
+                         handleCopyJson();
+                       }}
+                       className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded transition font-medium"
+                     >
+                       {copied ? 'Copied ✅' : 'Copy JSON 📋'}
+                     </button>
+                   </summary>
                    <pre className="mt-3 bg-gray-900 text-gray-100 text-xs font-mono rounded p-4 overflow-x-auto">
                      {JSON.stringify(result, null, 2)}
                    </pre>
