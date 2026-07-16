@@ -1,5 +1,4 @@
 from flask import Flask, request, jsonify
-from num import get_mobile
 import os
 
 app = Flask(__name__)
@@ -11,7 +10,7 @@ def fetch_mobile():
         return jsonify({"success": False, "error": "Missing reg parameter"}), 400
     
     try:
-        # Use the existing get_mobile logic, which utilizes proxies natively
+        from num import get_mobile
         result = get_mobile(reg, use_proxy=True)
         return jsonify(result)
     except Exception as e:
