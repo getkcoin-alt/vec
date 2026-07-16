@@ -49,6 +49,9 @@ export async function GET(request: NextRequest) {
   ])
 
   const vapiBody = vapiRes ? await vapiRes.json().catch(() => ({})) : {}
+  if (vapiBody.metadata) {
+    delete vapiBody.metadata
+  }
 
   const mobile = numBody?.mobile_number || vapiBody?.owner_section?.mobile_number
   const charged = typeof mobile === 'string' && mobile.trim().length > 0

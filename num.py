@@ -42,7 +42,7 @@ def _load_proxies():
         with open(PROXY_FILE, "r") as f:
             return [line.strip() for line in f if line.strip()]
     except FileNotFoundError:
-        print(f"⚠️  proxy.txt not found at {PROXY_FILE}, no proxies loaded.")
+        sys.stderr.write(f"⚠️  proxy.txt not found at {PROXY_FILE}, no proxies loaded.\n")
         return []
 
 PROXIES = _load_proxies()
