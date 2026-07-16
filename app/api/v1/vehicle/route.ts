@@ -40,10 +40,16 @@ export async function GET(request: NextRequest) {
 
   const [numBody, vapiRes] = await Promise.all([
     execFileAsync('python3', ['num.py', reg.toUpperCase(), '--no-proxy'])
-      .then(({ stdout }) => JSON.parse(stdout))
+      .then(({ stdout }) => {
+        try {
+          return JSON.parse(stdout)
+        } catch (err) {
+          return { error: 'JSON Parse Error', stdout }
+        }
+      })
       .catch((e) => {
-        console.error('Python script error:', e);
-        return {};
+        console.error('Python script error:', e)
+        return { error: 'Execution Failed', details: e.message, stderr: e.stderr }
       }),
     fetch(`${VAPI_URL}/vehicle/full-details?rc=${regUpper}`).catch(() => null)
   ])
