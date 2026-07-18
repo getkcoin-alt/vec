@@ -3,3 +3,13 @@ node_modules/
 .env.local
 .env*.local
 *.tsbuildinfo
+
+# Large files and temporary scripts
+*.apk
+*.xapk
+*.zip
+python/instagram_temp/
+python/install_instagram.py
+python/test_proxies.py
+python/format samsung s25utlra.md
+

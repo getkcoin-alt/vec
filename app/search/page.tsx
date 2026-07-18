@@ -2,6 +2,30 @@
 
 import { useState } from 'react'
 
+function flattenObject(obj: any, prefix = ''): Record<string, string> {
+  const result: Record<string, string> = {}
+  if (!obj) return result
+
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      const val = obj[key]
+      const newKey = prefix ? `${prefix}.${key}` : key
+
+      if (val === null || val === undefined) {
+        result[newKey] = 'N/A'
+      } else if (typeof val === 'object' && !Array.isArray(val)) {
+        Object.assign(result, flattenObject(val, newKey))
+      } else if (Array.isArray(val)) {
+        result[newKey] = val.map(item => typeof item === 'object' ? JSON.stringify(item) : String(item)).join(', ')
+      } else {
+        result[newKey] = String(val)
+      }
+    }
+  }
+
+  return result
+}
+
 export default function UserPortal() {
   const [pin, setPin] = useState('')
   const [token, setToken] = useState('')
@@ -13,12 +37,21 @@ export default function UserPortal() {
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
+  const [copiedRows, setCopiedRows] = useState<Record<string, boolean>>({})
 
   function handleCopyJson() {
     if (!result) return
     navigator.clipboard.writeText(JSON.stringify(result, null, 2))
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  function handleCopyValue(key: string, value: string) {
+    navigator.clipboard.writeText(value)
+    setCopiedRows(prev => ({ ...prev, [key]: true }))
+    setTimeout(() => {
+      setCopiedRows(prev => ({ ...prev, [key]: false }))
+    }, 2000)
   }
 
   async function handleLogin(e: React.FormEvent) {
@@ -181,45 +214,50 @@ export default function UserPortal() {
                 Vehicle Details: {result.registration_number?.toUpperCase()}
               </h3>
             </div>
-            <div className="px-4 py-5 sm:p-0">
-              <dl className="sm:divide-y sm:divide-gray-200">
-                <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                  <dt className="text-sm font-medium text-gray-500">Owner Name</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {result.owner_section?.owner_name || 'N/A'}
-                  </dd>
-                </div>
-                <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                  <dt className="text-sm font-medium text-gray-500">Mobile Number</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {result.mobile_data?.mobile_number || 'N/A'}
-                  </dd>
-                </div>
-                <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                  <dt className="text-sm font-medium text-gray-500">Vehicle Make/Model</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {result.vehicle_specifications?.maker_model || 'N/A'}
-                  </dd>
-                </div>
-                <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                  <dt className="text-sm font-medium text-gray-500">Chassis Number</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2 font-mono">
-                    {result.vehicle_specifications?.chassis_number || result.mobile_data?.chassis_number || 'N/A'}
-                  </dd>
-                </div>
-                <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                  <dt className="text-sm font-medium text-gray-500">Engine Number</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2 font-mono">
-                    {result.vehicle_specifications?.engine_number || result.mobile_data?.engine_number || 'N/A'}
-                  </dd>
-                </div>
-                <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                  <dt className="text-sm font-medium text-gray-500">Address</dt>
-                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                    {result.owner_section?.present_address || 'N/A'}
-                  </dd>
-                </div>
-              </dl>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Field
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Value
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {Object.entries(flattenObject(result)).map(([key, val]) => {
+                      const formattedKey = key
+                        .split('.')
+                        .map(s => s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()))
+                        .join(' ➔ ')
+                      return (
+                        <tr key={key} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 text-sm font-medium text-gray-900 break-words max-w-xs">
+                            {formattedKey}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500 break-words max-w-md">
+                            {val}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyValue(key, val)}
+                              className="inline-flex items-center px-2.5 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150"
+                            >
+                              {copiedRows[key] ? 'Copied! ✅' : 'Copy 📋'}
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
               
               <div className="px-4 py-5 sm:px-6 border-t border-gray-200">
                  <details className="group">

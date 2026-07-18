@@ -10,26 +10,26 @@ export async function GET() {
     .single()
 
   if (existing) {
-    // Just update the balance to 500 if they already exist
+    // Just update the balance to 198 if they already exist
     const { error: updateErr } = await supabase
       .from('clients')
-      .update({ balance: 500 })
+      .update({ balance: 198 })
       .eq('token', '8090')
       
     if (updateErr) return NextResponse.json({ error: updateErr.message })
-    return NextResponse.json({ success: true, message: 'Nikunj Goyal already existed. Updated balance to 500.' })
+    return NextResponse.json({ success: true, message: 'Nikunj Goyal already existed. Updated balance to 198.' })
   }
 
   // Create new
   const { error } = await supabase.from('clients').insert({
     name: 'Nikunj Goyal',
     token: '8090',
-    balance: 500
+    balance: 198
   })
 
   if (error) {
     return NextResponse.json({ error: error.message })
   }
 
-  return NextResponse.json({ success: true, message: 'Successfully created Nikunj Goyal with PIN 8090 and 500 credits!' })
+  return NextResponse.json({ success: true, message: 'Successfully created Nikunj Goyal with PIN 8090 and 198 credits!' })
 }
