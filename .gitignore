@@ -5,11 +5,10 @@ node_modules/
 *.tsbuildinfo
 
 # Large files and temporary scripts
-*.apk
-*.xapk
-*.zip
-python/instagram_temp/
-python/install_instagram.py
-python/test_proxies.py
-python/format samsung s25utlra.md
-
+**/*.apk
+**/*.xapk
+**/*.zip
+**/instagram_temp/
+**/install_instagram.py
+**/test_proxies.py
+**/format samsung s25utlra.md
