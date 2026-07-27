@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
   return withCors(NextResponse.json({
     success: true,
-    client: client.name,
+    client: client.name === 'Nikunj Goyal' ? 'Demo User' : client.name,
     calls_used: count ?? 0,
     credits_remaining: client.balance,
   }))
